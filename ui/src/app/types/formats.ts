@@ -1,6 +1,7 @@
 export interface Format {
   id: string;
   text: string;
+  isAudioOnly: boolean;
   qualities: Quality[];
 }
 
@@ -13,6 +14,7 @@ export const Formats: Format[] = [
   {
     id: 'any',
     text: 'Any',
+    isAudioOnly: false,
     qualities: [
       { id: 'best', text: 'Best' },
       { id: '1440', text: '1440p' },
@@ -25,6 +27,7 @@ export const Formats: Format[] = [
   {
     id: 'mp4',
     text: 'MP4',
+    isAudioOnly: false,
     qualities: [
       { id: 'best', text: 'Best' },
       { id: '1440', text: '1440p' },
@@ -36,6 +39,7 @@ export const Formats: Format[] = [
   {
     id: 'm4a',
     text: 'M4A',
+    isAudioOnly: true,
     qualities: [
       { id: 'best', text: 'Best' },
       { id: '192', text: '192 kbps' },
@@ -45,6 +49,7 @@ export const Formats: Format[] = [
   {
     id: 'mp3',
     text: 'MP3',
+    isAudioOnly: true,
     qualities: [
       { id: 'best', text: 'Best' },
       { id: '320', text: '320 kbps' },
@@ -55,6 +60,7 @@ export const Formats: Format[] = [
   {
     id: 'opus',
     text: 'OPUS',
+    isAudioOnly: true,
     qualities: [
       { id: 'best', text: 'Best' },
     ],
@@ -62,6 +68,7 @@ export const Formats: Format[] = [
   {
     id: 'wav',
     text: 'WAV',
+    isAudioOnly: true,
     qualities: [
       { id: 'best', text: 'Best' },
     ],
@@ -69,6 +76,7 @@ export const Formats: Format[] = [
   {
     id: 'thumbnail',
     text: 'Thumbnail',
+    isAudioOnly: false,
     qualities: [
       { id: 'best', text: 'Best' }
     ],

@@ -8,7 +8,7 @@ import { CookieService } from 'ngx-cookie-service';
 
 import { AppComponent } from './app.component';
 import { EtaPipe, SpeedPipe, EncodeURIComponent } from './downloads.pipe';
-import { MasterCheckboxComponent, SlaveCheckboxComponent } from './master-checkbox.component';
+import { ParentCheckboxComponent, ChildCheckboxComponent } from './parent-checkbox.component';
 import { MeTubeSocket } from './metube-socket';
 import { NgSelectModule } from '@ng-select/ng-select';
 
@@ -18,8 +18,8 @@ import { NgSelectModule } from '@ng-select/ng-select';
     EtaPipe,
     SpeedPipe,
     EncodeURIComponent,
-    MasterCheckboxComponent,
-    SlaveCheckboxComponent
+    ParentCheckboxComponent,
+    ChildCheckboxComponent
   ],
   imports: [
     BrowserModule,

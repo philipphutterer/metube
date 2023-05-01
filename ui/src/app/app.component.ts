@@ -1,170 +1,166 @@
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { faTrashAlt, faCheckCircle, faTimesCircle } from '@fortawesome/free-regular-svg-icons';
-import { faRedoAlt, faSun, faMoon, faExternalLinkAlt, faDownload } from '@fortawesome/free-solid-svg-icons';
-import { CookieService } from 'ngx-cookie-service';
-import { map, Observable, of } from 'rxjs';
+import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {faCheckCircle, faTimesCircle, faTrashAlt} from '@fortawesome/free-regular-svg-icons';
+import {faDownload, faExternalLinkAlt, faMoon, faRedoAlt, faSun, faBan} from '@fortawesome/free-solid-svg-icons';
+import {CookieService} from 'ngx-cookie-service';
+import {map, Observable} from 'rxjs';
 
-import { Download, DownloadsService, Status } from './downloads.service';
-import { MasterCheckboxComponent } from './master-checkbox.component';
-import { Formats, Format, Quality } from './formats';
+import {DownloadsService, MAP} from './downloads.service';
+import {ParentCheckboxComponent} from './parent-checkbox.component';
+import {Format, Formats} from './types/formats';
+import {Download} from './types/download';
+import {Status} from './types/status';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.sass'],
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit {
   addUrl: string;
   formats: Format[] = Formats;
-  qualities: Quality[];
-  quality: string;
-  format: string;
+  selectedQualityId: string;
+  selectedFormat: Format;
   folder: string;
   customNamePrefix: string;
   addInProgress = false;
   darkMode: boolean;
   customDirs$: Observable<string[]>;
 
-  @ViewChild('queueMasterCheckbox') queueMasterCheckbox: MasterCheckboxComponent;
+  @ViewChild('queueParentCheckbox') queueParentCheckbox: ParentCheckboxComponent;
   @ViewChild('queueDelSelected') queueDelSelected: ElementRef;
-  @ViewChild('doneMasterCheckbox') doneMasterCheckbox: MasterCheckboxComponent;
+  @ViewChild('doneParentCheckbox') doneParentCheckbox: ParentCheckboxComponent;
   @ViewChild('doneDelSelected') doneDelSelected: ElementRef;
   @ViewChild('doneClearCompleted') doneClearCompleted: ElementRef;
   @ViewChild('doneClearFailed') doneClearFailed: ElementRef;
 
   faTrashAlt = faTrashAlt;
+  faBan = faBan;
   faCheckCircle = faCheckCircle;
   faTimesCircle = faTimesCircle;
   faRedoAlt = faRedoAlt;
   faSun = faSun;
-  faMoon = faMoon;  
-  faDownload = faDownload;  
+  faMoon = faMoon;
+  faDownload = faDownload;
   faExternalLinkAlt = faExternalLinkAlt;
 
   constructor(public downloads: DownloadsService, private cookieService: CookieService) {
-    this.format = cookieService.get('metube_format') || 'any';
-    // Needs to be set or qualities won't automatically be set
-    this.setQualities()
-    this.quality = cookieService.get('metube_quality') || 'best';
-    this.setupTheme(cookieService)
+    const selectedFormatId = cookieService.get('metube_format') || 'any';
+    this.selectedFormat = this.formats.find(format => format.id === selectedFormatId);
+    this.selectedQualityId = cookieService.get('metube_quality') || 'best';
+    this.setupTheme(cookieService);
   }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.customDirs$ = this.getMatchingCustomDir();
   }
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     this.downloads.queueChanged.subscribe(() => {
-      this.queueMasterCheckbox.selectionChanged();
+      this.queueParentCheckbox.selectionChanged();
     });
     this.downloads.doneChanged.subscribe(() => {
-      this.doneMasterCheckbox.selectionChanged();
-      let completed: number = 0, failed: number = 0;
-      this.downloads.done.forEach(dl => {
-        if (dl.status === 'finished')
-          completed++;
-        else if (dl.status === 'error')
-          failed++;
-      });
-      this.doneClearCompleted.nativeElement.disabled = completed === 0;
-      this.doneClearFailed.nativeElement.disabled = failed === 0;
+      this.doneParentCheckbox.selectionChanged();
+      const downloadsDone = [...this.downloads.done.values()];
+      const hasAnyCompleted = downloadsDone.some(dl => dl.status === 'finished');
+      const hasAnyFailed = downloadsDone.some(dl => dl.status === 'error');
+      this.doneClearCompleted.nativeElement.disabled = !hasAnyCompleted;
+      this.doneClearFailed.nativeElement.disabled = !hasAnyFailed;
     });
   }
 
   // workaround to allow fetching of Map values in the order they were inserted
   //  https://github.com/angular/angular/issues/31420
-  asIsOrder(a, b) {
+  asIsOrder(a, b): number {
     return 1;
   }
 
-  qualityChanged() {
-    this.cookieService.set('metube_quality', this.quality, { expires: 3650 });
-    // Re-trigger custom directory change
-    this.downloads.customDirsChanged.next(this.downloads.customDirs);
+  showAdvanced(): boolean {
+    return this.downloads.configuration?.CUSTOM_DIRS;
   }
 
-  showAdvanced() {
-    return this.downloads.configuration['CUSTOM_DIRS'];
+  allowCustomDir(tag: string): string | boolean {
+    return this.downloads.configuration?.CREATE_CUSTOM_DIRS ? tag : false;
   }
 
-  allowCustomDir(tag: string) {
-    if (this.downloads.configuration['CREATE_CUSTOM_DIRS']) {
-      return tag;
-    }
-    return false;
+  isAudioType(): boolean {
+    return this.selectedFormat.isAudioOnly || this.selectedQualityId === 'audio';
   }
 
-  isAudioType() {
-    return this.quality == 'audio' || this.format == 'mp3'  || this.format == 'm4a' || this.format == 'opus' || this.format == 'wav'
-  }
-
-  getMatchingCustomDir() : Observable<string[]> {
+  getMatchingCustomDir(): Observable<string[]> {
     return this.downloads.customDirsChanged.asObservable().pipe(map((output) => {
       // Keep logic consistent with app/ytdl.py
       if (this.isAudioType()) {
-        console.debug("Showing audio-specific download directories");
-        return output["audio_download_dir"];
+        console.debug('Showing audio-specific download directories');
+        return output.audio_download_dir;
       } else {
-        console.debug("Showing default download directories");
-        return output["download_dir"];
+        console.debug('Showing default download directories');
+        return output.download_dir;
       }
     }));
   }
 
-  setupTheme(cookieService) {
+  setupTheme(cookieService: CookieService): void {
     if (cookieService.check('metube_dark')) {
-      this.darkMode = cookieService.get('metube_dark') === "true"
+      this.darkMode = cookieService.get('metube_dark') === 'true';
     } else {
-      this.darkMode = window.matchMedia("prefers-color-scheme: dark").matches
+      this.darkMode = window.matchMedia('prefers-color-scheme: dark').matches;
     }
-    this.setTheme()
+    this.setTheme();
   }
 
-  themeChanged() {
-    this.darkMode = !this.darkMode
-    this.cookieService.set('metube_dark', this.darkMode.toString(), { expires: 3650 });
-    this.setTheme()
+  themeChanged(): void {
+    this.darkMode = !this.darkMode;
+    this.cookieService.set('metube_dark', this.darkMode.toString(), {expires: 3650});
+    this.setTheme();
   }
 
-  setTheme() {
-    const doc = document.querySelector('html')
-    const filter = this.darkMode ? "invert(1) hue-rotate(180deg)" : ""
-    doc.style.filter = filter
+  setTheme(): void {
+    const doc = document.querySelector('html');
+    const filter = this.darkMode ? 'invert(1) hue-rotate(180deg)' : '';
+    doc.style.filter = filter;
   }
 
-  formatChanged() {
-    this.cookieService.set('metube_format', this.format, { expires: 3650 });
-    // Updates to use qualities available
-    this.setQualities()
+  formatChanged(): void {
+    const hasSelectedQuality = this.selectedFormat.qualities.find(quality => quality.id === this.selectedQualityId);
+    if (!hasSelectedQuality) {
+      this.selectedQualityId = 'best';
+      this.qualityChanged();
+    }
+    this.cookieService.set('metube_format', this.selectedFormat.id, {expires: 3650});
     // Re-trigger custom directory change
     this.downloads.customDirsChanged.next(this.downloads.customDirs);
   }
 
-  queueSelectionChanged(checked: number) {
-    this.queueDelSelected.nativeElement.disabled = checked == 0;
+  qualityChanged(): void {
+    this.cookieService.set('metube_quality', this.selectedQualityId, {expires: 3650});
+    // Re-trigger custom directory change
+    this.downloads.customDirsChanged.next(this.downloads.customDirs);
   }
 
-  doneSelectionChanged(checked: number) {
-    this.doneDelSelected.nativeElement.disabled = checked == 0;
+  queueSelectionChanged(checked: number): void {
+    this.queueDelSelected.nativeElement.disabled = checked === 0;
   }
 
-  setQualities() {
-    // qualities for specific format
-    this.qualities = this.formats.find(el => el.id == this.format).qualities
-    const exists = this.qualities.find(el => el.id === this.quality)
-    this.quality = exists ? this.quality : 'best'
+  doneSelectionChanged(checked: number): void {
+    this.doneDelSelected.nativeElement.disabled = checked === 0;
   }
 
-  addDownload(url?: string, quality?: string, format?: string, folder?: string, customNamePrefix?: string) {
-    url = url ?? this.addUrl
-    quality = quality ?? this.quality
-    format = format ?? this.format
-    folder = folder ?? this.folder
-    customNamePrefix = customNamePrefix ?? this.customNamePrefix
+  addCurrentDownload(): void {
+    const download = {
+      url: this.addUrl,
+      quality: this.selectedQualityId,
+      format: this.selectedFormat.id,
+      folder: this.folder,
+      customNamePrefix: this.customNamePrefix
+    };
+    // TODO: separate Download and QueueDownload type?
+    this.addDownload(download as unknown as Download);
+  }
 
-    console.debug('Downloading: url='+url+' quality='+quality+' format='+format+' folder='+folder+' customNamePrefix='+customNamePrefix);
+  addDownload(download: Download): void {
+    console.debug('Downloading:', download);
     this.addInProgress = true;
-    this.downloads.add(url, quality, format, folder, customNamePrefix).subscribe((status: Status) => {
+    this.downloads.add(download).subscribe((status: Status) => {
       if (status.status === 'error') {
         alert(`Error adding URL: ${status.msg}`);
       } else {
@@ -174,32 +170,31 @@ export class AppComponent implements AfterViewInit {
     });
   }
 
-  retryDownload(key: string, url: string, quality: string, format: string, folder: string, customNamePrefix: string) {
-    this.addDownload(url, quality, format, folder, customNamePrefix);
-    this.downloads.delById('done', [key]).subscribe();
+  retryDownload(key: string, download: Download): void {
+    this.delDownload('done', key);
+    this.addDownload(download);
   }
 
-  delDownload(where: string, id: string) {
+  delDownload(where: MAP, id: string): void {
     this.downloads.delById(where, [id]).subscribe();
   }
 
-  delSelectedDownloads(where: string) {
-    this.downloads.delByFilter(where, dl => dl.checked).subscribe();
+  delSelectedDownloads(where: MAP): void {
+    this.downloads.delByFilter(where, dl => dl.isChecked).subscribe();
   }
 
-  clearCompletedDownloads() {
+  clearCompletedDownloads(): void {
     this.downloads.delByFilter('done', dl => dl.status === 'finished').subscribe();
   }
 
-  clearFailedDownloads() {
+  clearFailedDownloads(): void {
     this.downloads.delByFilter('done', dl => dl.status === 'error').subscribe();
   }
 
-  buildDownloadLink(download: Download) {
-    let baseDir = 'download/';
-    if (download.quality == 'audio' || download.filename.endsWith('.mp3')) {
-      baseDir = 'audio_download/';
-    }
+  buildDownloadLink(download: Download): string {
+    // FIXME: missing checks for audio?
+    const isAudio = download.quality === 'audio' || download.filename.endsWith('.mp3');
+    let baseDir = isAudio ? 'audio_download/' : 'download/';
 
     if (download.folder) {
       baseDir += download.folder + '/';
